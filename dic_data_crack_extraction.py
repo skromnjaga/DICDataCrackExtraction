@@ -290,7 +290,7 @@ def get_crack_ROI(data, x, y, last_rec_num, threshold, otsu = True, crack_locati
     for i in range(crack_points_num):
         crack_real_coord.append([
             x[crack_thin[i, 0], crack_thin[i, 1]],
-            y_coords[crack_thin[i, 0], crack_thin[i, 1]],
+            y[crack_thin[i, 0], crack_thin[i, 1]],
         ])
 
     # Calculate length of crack for each point
