@@ -155,12 +155,13 @@ def try_load_results(result_path, data_set_name):
     except FileNotFoundError:
         return None, None
 
-def save_process_result(parameters, results):
+def save_process_result(result_path, data_set_name, parameters, results):
     '''
     Save parameters and results of processing
     '''
-    Path(RESULT_PATH).mkdir(parents=True, exist_ok=True)
-    file_name = RESULT_PATH + '/' + DATA_SET_NAME + '_results.npz'
+    # Results path if not exist
+    Path(result_path).mkdir(parents=True, exist_ok=True)
+    file_name = result_path + '/' + data_set_name + '_results.npz'
     np.savez(file_name, parameters=parameters, results=results)
     print(f'Processing results saved to {file_name} file')
 
@@ -193,6 +194,9 @@ def download_from_yandex_disk(file_link, data_path):
         file_name = file_name[0]
     # Clean space and double quotes
     file_name.strip().strip('"')
+
+    # Create data path if not exist
+    Path(data_path).mkdir(parents=True, exist_ok=True)
 
     # Save file to data folder
     with open(data_path + '/' + file_name, 'wb') as f:
@@ -590,7 +594,7 @@ if __name__ == '__main__':
     RESULT_PATH = './results'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022')
-    REMOTE_DATA_SETS_LINKS = ('', 'https://yadi.sk/d/pO821NjtNw-ohg', '', '')
+    REMOTE_DATA_SETS_LINKS = ('', '', '', '')
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
     AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H 9-2.mat', 'Rail(10.03.22).mat')
     AE_MOMENTS = (0, 10, 20, 1132)
@@ -608,7 +612,7 @@ if __name__ == '__main__':
     SHOW_THRESHOLDS_TIMES = True
 
     # Index of data set to calculate
-    DATA_SET_INDEX = 1
+    DATA_SET_INDEX = 2
     
     # Threshold to find crack
     THRESHOLD_RATIO = 10
@@ -702,7 +706,7 @@ if __name__ == '__main__':
                    'times_threshold_exceeded': times_threshold_exceeded, 'result_time_threshold_exceeded': result_time_threshold_exceeded,
                    'time_counts': time_counts}
 
-        save_process_result(parameters, results)
+        save_process_result(RESULT_PATH, DATA_SET_NAME, parameters, results)
     else:
         # Parsing loaded data from previous results
         crack_ROI = results[()]['crack_ROI']
