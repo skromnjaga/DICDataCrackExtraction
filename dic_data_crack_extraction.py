@@ -590,7 +590,7 @@ if __name__ == '__main__':
     RESULT_PATH = './results'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022')
-    REMOTE_DATA_SETS_LINKS = ('', 'https://yadi.sk/d/pO821NjtNw-ohg')
+    REMOTE_DATA_SETS_LINKS = ('', 'https://yadi.sk/d/pO821NjtNw-ohg', '', '')
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
     AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H 9-2.mat', 'Rail(10.03.22).mat')
     AE_MOMENTS = (0, 10, 20, 1132)
