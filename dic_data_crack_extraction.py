@@ -1,5 +1,6 @@
 from pathlib import Path
 from io import StringIO
+import re
 import fnmatch
 import zipfile
 
@@ -126,11 +127,13 @@ def load_data_from_file(data_set_name, data_path):
         yy = loaded_data['y']
         data = loaded_data['data']
     except IOError as e:
+        # Try to import raw data from DaVis
         print(f'Data file { file_name } not found. Try to import data from DaVis...')
         xx, yy, data = import_data_from_davis(data_set_name, data_path)
     else:
         print(f'Data file { file_name } loaded with { data.shape[0] } records.')
-        
+
+    # Try to load time counts from data    
     try:
         tt = loaded_data['t']
     except:
@@ -161,22 +164,41 @@ def save_process_result(parameters, results):
     np.savez(file_name, parameters=parameters, results=results)
     print(f'Processing results saved to {file_name} file')
 
-def download_from_ya_disk(file_link, file_name):
+def download_from_yandex_disk(file_link, data_path):
     '''
     Download data files from yande disk if not presented in local disk
     '''
     base_url = 'https://cloud-api.yandex.net/v1/disk/public/resources/download?'
-    #public_key = 'https://yadi.sk/d/UJ8VMK2Y6bJH7A'  # Сюда вписываете вашу ссылку
 
-    # Получаем загрузочную ссылку
+    # Get download link
     final_url = base_url + urlencode(dict(public_key=file_link))
     response = requests.get(final_url)
     download_url = response.json()['href']
 
-    # Загружаем файл и сохраняем его
+    print(f'Download link for remote data obtained {download_url}')
+    print('Start downloading...')
+
+    # Download file
     download_response = requests.get(download_url)
-    with open(file_name, 'wb') as f:   # Здесь укажите нужный путь к файлу
+    
+    # Try to parse file name (from https://stackoverflow.com/a/51570425)
+    s = download_response.headers['content-disposition']
+    file_name = re.findall('filename\*=([^;]+)', s, flags=re.IGNORECASE)
+    if not file_name:
+        file_name = re.findall('filename=([^;]+)', s, flags=re.IGNORECASE)
+    if "utf-8''" in file_name[0].lower():
+        file_name = re.sub("utf-8''", '', file_name[0], flags=re.IGNORECASE)
+        #fname = urllib.unquote(fname).decode('utf8')
+    else:
+        file_name = file_name[0]
+    # Clean space and double quotes
+    file_name.strip().strip('"')
+
+    # Save file to data folder
+    with open(data_path + '/' + file_name, 'wb') as f:
         f.write(download_response.content)
+
+    print(f'File "{file_name}" succefully downloaded to "{data_path}"')
 
 def get_normalize_scalar_field(field, max_value):
 
@@ -568,6 +590,7 @@ if __name__ == '__main__':
     RESULT_PATH = './results'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022')
+    REMOTE_DATA_SETS_LINKS = ('', 'https://yadi.sk/d/pO821NjtNw-ohg')
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
     AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H 9-2.mat', 'Rail(10.03.22).mat')
     AE_MOMENTS = (0, 10, 20, 1132)
@@ -585,7 +608,7 @@ if __name__ == '__main__':
     SHOW_THRESHOLDS_TIMES = True
 
     # Index of data set to calculate
-    DATA_SET_INDEX = 3
+    DATA_SET_INDEX = 1
     
     # Threshold to find crack
     THRESHOLD_RATIO = 10
@@ -597,6 +620,7 @@ if __name__ == '__main__':
     FORCE_TO_RECALCULATE = False
 
     DATA_SET_NAME = DATA_SETS[DATA_SET_INDEX]
+    REMOTE_DATA_SETS_LINK = REMOTE_DATA_SETS_LINKS[DATA_SET_INDEX]
 
     # Last record to process (before destruction)    
     LAST_REC = LAST_RECSS[DATA_SET_INDEX]
@@ -639,7 +663,14 @@ if __name__ == '__main__':
     # Load data if required
     if process_data or SHOW_CRACK_ROI or SHOW_CRACK_DETECTED_STRAIN_FIELD:
         # Load data from file
-        x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
+        try:
+            x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
+        except FileNotFoundError:
+            # Try to load remote data
+            print(f'Local files and raw data from DaVis not found. Try to download data from remote...')
+            download_from_yandex_disk(REMOTE_DATA_SETS_LINK, DATA_PATH)
+            print('Try to open downloaded file again...')
+            x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
 
     # Load AE data from .mat file if filename specified   
     if AE_FILE != '':

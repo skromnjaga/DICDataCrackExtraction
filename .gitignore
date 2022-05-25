@@ -127,3 +127,24 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/H 9-2.mat
+data/H_9_2_17_12_2021_time.npy
+data/H_9_2_17_12_2021.npz
+data/H_9_2_17_12_2021.zip
+data/O16_12_08_2021.npz
+data/O16_12_08_2021.zip
+data/O16.mat
+data/P6.mat
+data/R_6_28_12_2021.npz
+data/R_6_28_12_2021.zip
+data/R_Nemo_10_03_2022_time.npy
+data/R_Nemo_10_03_2022.npz
+data/R_Nemo_10_03_2022.zip
+data/Rail(10.03.22).mat
+data/Shaft(O16).mat
+data/X-9-2_part.mat
+data/X-9-2.mat
+data/X-9-2(result).mat
+results/R_Nemo_10_03_2022_results.npz
+data/R_Nemo_10_03_2022_results.npz
+.vscode/launch.json
