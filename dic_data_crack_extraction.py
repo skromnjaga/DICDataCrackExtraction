@@ -1,8 +1,5 @@
 from pathlib import Path
-from io import StringIO
 import re
-import fnmatch
-import zipfile
 
 import requests
 from urllib.parse import urlencode
@@ -13,109 +10,10 @@ import scipy.io
 import cv2
 
 
-def import_xy_from_DaVis_txt(file):
-    # Read fist line of file
-    first_line = file.readline()
-    if isinstance(first_line, bytes):
-        first_line = first_line.decode()
-    text_data = first_line.split(' ')
-
-    # Import coordinates data
-    width = int(text_data[3])
-    height = int(text_data[4])
-    scale_x = float(text_data[6])
-    offset_x = float(text_data[7])
-    scale_y = float(text_data[10])
-    offset_y = float(text_data[11])
-
-    # Create mesh fo X and Y
-    x = np.linspace(0, width - 1, width)
-    y = np.linspace(0, height - 1, height)
-    xx, yy = np.meshgrid(x, y)
-    xx = xx * scale_x + offset_x
-    yy = yy * scale_y + offset_y
-
-    return xx, yy
-
-def import_scalar_field_from_DaVis_txt(file, detect_bounding_box=True):
-    file_data = file.read()
-    if isinstance(file_data, bytes):
-        file_data = file_data.decode()
-
-    # Replace coma with dot
-    file_data = file_data.replace(',', '.')
-
-    # Load data in numpy array
-    txt_data = np.loadtxt(StringIO(file_data), dtype=np.float32, delimiter='\t') #, converters = {0: lambda s: float(s.decode("UTF-8").replace(",", "."))})
-
-    if detect_bounding_box:
-        # Find bounding box for non zero data ROI
-        # from https://stackoverflow.com/questions/31400769/bounding-box-of-numpy-array
-        rows = np.any(txt_data, axis=1)
-        cols = np.any(txt_data, axis=0)
-        rmin, rmax = np.where(rows)[0][[0, -1]]
-        cmin, cmax = np.where(cols)[0][[0, -1]]
-
-    if detect_bounding_box:
-        return txt_data, (rmin, rmax, cmin, cmax)
-    else:
-        return txt_data, None
-   
-def import_data_from_davis(data_set_name, data_path, file_mask = 'B*.txt'):
-
-    imported_data = []
-
-    file_name = data_path + '/' + data_set_name + '.zip'
-
-    bounding_box_found = False
-
-    #file_names = glob.glob(file_mask)
-
-    # Open zip file with DaVis data
-    with zipfile.ZipFile(file_name) as z:
-        print(f'ZIP file { file_name } opened..')
-
-        # Filter files to import with file_mask
-        name_list = z.namelist()
-        file_to_process = fnmatch.filter(name_list, file_mask)        
-
-        # Detect X and Y coordinates in real dimensions
-        with z.open(file_to_process[0], 'r') as file:
-            xx, yy = import_xy_from_DaVis_txt(file)
-             
-        # Process each file
-        for fn in file_to_process:
-            with z.open(fn, 'r') as file:
-                import_xy_from_DaVis_txt(file)
-                data, bb = import_scalar_field_from_DaVis_txt(file)
-                
-                if bb is not None and not bounding_box_found:
-                    bounding_box_found = True
-                    bounding_box = bb
-                    # Cut X and Y coordinates with detemined ROI
-                    xx = xx[bounding_box[0]:bounding_box[1], bounding_box[2]:bounding_box[3]]
-                    yy = yy[bounding_box[0]:bounding_box[1], bounding_box[2]:bounding_box[3]]
-
-            if bounding_box_found:
-                # Cut region of interest
-                data = data[bounding_box[0]:bounding_box[1], bounding_box[2]:bounding_box[3]]
-
-            imported_data.append(data)
-
-            print(f'File { fn } imported..')
-
-
-    # If any data exported, save it to file
-    if len(imported_data) > 0:
-        data_to_store = np.array(imported_data)
-        file_name = data_path + '/' + data_set_name + '.npz'
-        np.savez(file_name, x=xx, y=yy, data=data_to_store)
-        print(f'Imported data saved to "{ file_name }" file')
-
-    return xx, yy, data
-
 def load_data_from_file(data_set_name, data_path):
-
+    '''
+    Load imported Davis series of scalar 2d fields with optional time counts from .npz file
+    '''
     data_set_path = data_path + '/' + data_set_name
 
     # Load file with data imported from DaVis
@@ -127,9 +25,7 @@ def load_data_from_file(data_set_name, data_path):
         yy = loaded_data['y']
         data = loaded_data['data']
     except IOError as e:
-        # Try to import raw data from DaVis
         print(f'Data file { file_name } not found. Try to import data from DaVis...')
-        xx, yy, data = import_data_from_davis(data_set_name, data_path)
     else:
         print(f'Data file { file_name } loaded with { data.shape[0] } records.')
 
@@ -533,7 +429,7 @@ def draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_norma
     dic_ratio = (max_normal_strain / avg_normal_strain)[np.where((time_counts > min_time) & (time_counts < max_time))[0]]
 
     # Determine AE data in zoomed data
-    if ae_data != None:
+    if ae_data is not None:
         ae_time = ae_data[0][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
         ae_events = ae_data[1][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
 
@@ -594,9 +490,11 @@ if __name__ == '__main__':
     RESULT_PATH = './results'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022')
-    REMOTE_DATA_SETS_LINKS = ('', '', '', '')
+    REMOTE_DIC_DATA_LINKS = ('https://yadi.sk/d/H1vUyhigblohFA', 'https://yadi.sk/d/rn3MWI0-RfzIcg', 'https://yadi.sk/d/9jzHGOotHuD9xQ', 'https://yadi.sk/d/rMMyPa9YhAxVtw')
+    REMOTE_AE_DATA_LINKS = ('', 'https://yadi.sk/d/4P30t4f32ndk7A', 'https://yadi.sk/d/tipwEmUdy2OTzg', 'https://yadi.sk/d/MfUAJK3Y7eQonA')
+
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
-    AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H 9-2.mat', 'Rail(10.03.22).mat')
+    AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H-9-2.mat', 'Rail(10.03.22).mat')
     AE_MOMENTS = (0, 10, 20, 1132)
     AE_COUNTS = (0, 5, 30, 6)
     LAST_RECSS = (8102, 1199, 5758, 2666)
@@ -624,7 +522,8 @@ if __name__ == '__main__':
     FORCE_TO_RECALCULATE = False
 
     DATA_SET_NAME = DATA_SETS[DATA_SET_INDEX]
-    REMOTE_DATA_SETS_LINK = REMOTE_DATA_SETS_LINKS[DATA_SET_INDEX]
+    REMOTE_DIC_DATA_LINK = REMOTE_DIC_DATA_LINKS[DATA_SET_INDEX]
+    REMOTE_AE_DATA_LINK = REMOTE_AE_DATA_LINKS[DATA_SET_INDEX]
 
     # Last record to process (before destruction)    
     LAST_REC = LAST_RECSS[DATA_SET_INDEX]
@@ -672,16 +571,31 @@ if __name__ == '__main__':
         except FileNotFoundError:
             # Try to load remote data
             print(f'Local files and raw data from DaVis not found. Try to download data from remote...')
-            download_from_yandex_disk(REMOTE_DATA_SETS_LINK, DATA_PATH)
+            download_from_yandex_disk(REMOTE_DIC_DATA_LINK, DATA_PATH)
             print('Try to open downloaded file again...')
-            x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
+            try:
+                x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
+            except Exception as e:
+                print(f'Error of loading data set "{DATA_SET_NAME}" - {e}')
+                raise e
 
     # Load AE data from .mat file if filename specified   
+    ae_data = None
+
     if AE_FILE != '':
-        mat = scipy.io.loadmat(DATA_PATH + '/' + AE_FILE)
-        ae_data = [mat['time'].flatten(), mat['events'].flatten(), AE_MOMENT, AE_COUNT]
-    else:
-        ae_data = None
+        try:
+            mat = scipy.io.loadmat(DATA_PATH + '/' + AE_FILE)
+            ae_data = [mat['time'].flatten(), mat['events'].flatten(), AE_MOMENT, AE_COUNT]
+            print(f'AE file "{AE_FILE}" loaded...')
+        except FileNotFoundError:
+            print(f'AE file "{AE_FILE}" not found, try to download it...')
+            download_from_yandex_disk(REMOTE_AE_DATA_LINK, DATA_PATH)
+            print(f'Try to load file again...')
+            try:
+                mat = scipy.io.loadmat(DATA_PATH + '/' + AE_FILE)
+                ae_data = [mat['time'].flatten(), mat['events'].flatten(), AE_MOMENT, AE_COUNT]
+            except Exception as e:
+                print(f'Error of loading AE file "{AE_FILE}" - {e}')
 
     # Process data
     if process_data:        
@@ -739,7 +653,10 @@ if __name__ == '__main__':
         draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_data)
 
     if SHOW_THRESHOLDS_TIMES:
-        draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_normal_strain, max_normal_strain, THRESHOLD_RATIO, ae_data)
+        if ae_data is not None:
+            draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_normal_strain, max_normal_strain, THRESHOLD_RATIO, ae_data)
+        else:
+            print('Error plotting thresholds times - no AE data loaded!')
 
     # Show all figures if they were specified
     plt.show()
