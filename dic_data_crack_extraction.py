@@ -419,11 +419,20 @@ def draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_d
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax2.legend(lines + lines2, labels + labels2, loc=0)
 
-def draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_normal_strain, max_normal_strain, threshold_ratio, ae_data=None):
+def draw_thresholds_times(dic_data, ae_data=None):
+    '''
+    Draw threshold time for AE and DIC
+    '''
+    time_counts = dic_data[0]
+    result_time_threshold_exceeded = dic_data[1]
+    avg_normal_strain = dic_data[2]
+    max_normal_strain = dic_data[3]
+    threshold_ratio = dic_data[4]
+
     # Calculate zoomed time (threshold time for AE and DIC) difference, max and min
     delta_time = abs(result_time_threshold_exceeded[0] - ae_data[2]) / 2
-    min_time = max(min(result_time_threshold_exceeded[0], ae_data[2]) - delta_time, 0)
-    max_time = max(result_time_threshold_exceeded[0], ae_data[2]) + delta_time
+    min_time = max(min(result_time_threshold_exceeded[0], ae_data[2]) - delta_time * 3, 0)
+    max_time = max(result_time_threshold_exceeded[0], ae_data[2]) + delta_time * 3
     
     # Determine DIC data in zoomed data
     dic_time = time_counts[(time_counts > min_time) & (time_counts < max_time)]
@@ -433,11 +442,8 @@ def draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_norma
     if ae_data is not None:
         ae_time = ae_data[0][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
         ae_events = ae_data[1][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
-
-    # Draw crack length vs time figure
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.plot(dic_time, dic_ratio, 'ko')
+        ae_moment = ae_data[2]
+        ae_threshold = ae_data[3]
 
     # Filter otliers from ratio of avg to max normal strain
     w = 6
@@ -445,13 +451,18 @@ def draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_norma
         if not abs(dic_ratio[i] - np.mean(dic_ratio[i:i+w])) < 2 * np.std(dic_ratio[i:i+w]):
             dic_ratio[i] = np.median(dic_ratio[i:i+w])
     #filter_outliers(dic_ratio)
+
+    # Draw crack length vs time figure
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.plot(dic_time, dic_ratio, 'ko')
         
     # Sliding average on ratio of avg to max normal strain
-    # w = 50
-    # temp = dic_ratio.copy()
-    # for i in range(w // 2, len(dic_ratio) - w // 2):
-    #     temp[i] = np.sum(dic_ratio[i - w//2:i + w // 2]) / w
-    # dic_ratio = temp
+    w = 10
+    temp = dic_ratio.copy()
+    for i in range(w // 2, len(dic_ratio) - w // 2):
+        temp[i] = np.sum(dic_ratio[i - w//2:i + w // 2]) / w
+    dic_ratio = temp
 
     # Interpolate dic data
     #dic_time_interp = np.linspace(np.min(dic_indecies), np.max(dic_indecies))
@@ -474,6 +485,7 @@ def draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_norma
         ax2.plot(ae_time, ae_events, 'b-')
         #ax2.plot(AE_MOMENT[DATA_SET_INDEX], AE_COUNTS[DATA_SET_INDEX], 'bo')
         ax2.axhline(y=ae_data[3], color='b', linestyle='--')
+        ax2.stem(ae_moment, ae_threshold, linefmt='b--', markerfmt='bo')
         ax2.set_xlim([min_time, max_time])
         #ax2.set_yscale('log')
         ax2.set_ylim([0, None])
@@ -496,8 +508,8 @@ if __name__ == '__main__':
 
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
     AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H-9-2.mat', 'Rail(10.03.22).mat')
-    AE_MOMENTS = (0, 10, 20, 1132)
-    AE_COUNTS = (0, 5, 30, 6)
+    AE_MOMENTS = (0, 17.5, 11.59, 1300.3)
+    AE_COUNTS = (0, 15, 39, 28)
     LAST_RECSS = (8102, 1199, 5758, 2666)
     THRESHOLDS = (70, 115, 70, 60)
     USE_OTSUS = (True, False, False, False)
@@ -511,14 +523,14 @@ if __name__ == '__main__':
     SHOW_THRESHOLDS_TIMES = True
 
     # Index of data set to calculate
-    DATA_SET_INDEX = 1
+    DATA_SET_INDEX = 3
     
     # Threshold to find crack
     THRESHOLD_RATIO = 10
     # Threshold exceed repetitions to detect crack
     THRESHOLD_REPETITIONS = 3
     # Direction to filter exceeding time in accsending order
-    DIRECTION = 'backward'
+    DIRECTION = 'forward'
     # Force to recalculate results with the same parameters
     FORCE_TO_RECALCULATE = False
 
@@ -608,8 +620,6 @@ if __name__ == '__main__':
         
         # For each strain field find field in crack, avg and max field, find first index with crack founded
         field_in_crack, avg_normal_strain, max_normal_strain, first_crack_index = process_crack(data, crack_ROI, crack_points, LAST_REC, THRESHOLD_RATIO, THRESHOLD_REPETITIONS)
-
-        print(f'Crack founded on {first_crack_index} record - {time_counts[first_crack_index]} s')
         
         # Calculate for each crack point time when threshold is exceeded
         times_threshold_exceeded, result_time_threshold_exceeded = get_threshold_exceed_times(time_counts, field_in_crack, avg_normal_strain, THRESHOLD_RATIO, direction=DIRECTION)
@@ -634,6 +644,8 @@ if __name__ == '__main__':
         times_threshold_exceeded = results[()]['times_threshold_exceeded']
         result_time_threshold_exceeded = results[()]['result_time_threshold_exceeded']
         time_counts = results[()]['time_counts']
+
+    print(f'Crack founded on {first_crack_index} record - {time_counts[first_crack_index]} s')
     
     # Plotting graphs
     print('Plotting graphs...')
@@ -654,8 +666,11 @@ if __name__ == '__main__':
         draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_data)
 
     if SHOW_THRESHOLDS_TIMES:
+        dic_data = (time_counts, result_time_threshold_exceeded, avg_normal_strain,
+                    max_normal_strain, THRESHOLD_RATIO)
+
         if ae_data is not None:
-            draw_thresholds_times(time_counts, result_time_threshold_exceeded, avg_normal_strain, max_normal_strain, THRESHOLD_RATIO, ae_data)
+            draw_thresholds_times(dic_data, ae_data)
         else:
             print('Error plotting thresholds times - no AE data loaded!')
 
