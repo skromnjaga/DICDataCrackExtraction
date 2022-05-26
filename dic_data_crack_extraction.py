@@ -25,7 +25,8 @@ def load_data_from_file(data_set_name, data_path):
         yy = loaded_data['y']
         data = loaded_data['data']
     except IOError as e:
-        print(f'Data file { file_name } not found. Try to import data from DaVis...')
+        print(f'Data file { file_name } not found!')
+        raise e
     else:
         print(f'Data file { file_name } loaded with { data.shape[0] } records.')
 
@@ -510,7 +511,7 @@ if __name__ == '__main__':
     SHOW_THRESHOLDS_TIMES = True
 
     # Index of data set to calculate
-    DATA_SET_INDEX = 2
+    DATA_SET_INDEX = 1
     
     # Threshold to find crack
     THRESHOLD_RATIO = 10
