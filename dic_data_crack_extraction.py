@@ -341,17 +341,24 @@ def draw_crack_ROI(crack_ROI, crack_thin, data, last_rec, crack_location):
         # Add points of thinned crack
         plt.scatter(crack_thin[:, 1], crack_thin[:, 0] + crack_ROI.shape[0], marker='.', linewidths = 1.0, color='black')
 
-def draw_crack_detected_strain_field(data, crack_ROI, first_crack_index, crack_location):
+def draw_crack_detected_strain_field(data, first_crack_index, crack_ROI=None, crack_location=None):
     '''
     Draw strain field for first moment crack is detected
     '''
     plt.figure()
     field = data[first_crack_index, :, :]
-    crack_field = np.multiply(field, crack_ROI)
-    if crack_location == 'bottom' or crack_location == 'top':
-        plt.imshow(np.hstack((field, crack_field)), cmap='rainbow')
-    elif crack_location == 'right' or crack_location == 'left':
-        plt.imshow(np.vstack((field, crack_field)), cmap='rainbow')
+    if crack_ROI is not None:
+        crack_field = np.multiply(field, crack_ROI)
+        if crack_location == 'bottom' or crack_location == 'top':
+            plt.imshow(np.hstack((field, crack_field)), cmap='rainbow')
+        elif crack_location == 'right' or crack_location == 'left':
+            plt.imshow(np.vstack((field, crack_field)), cmap='rainbow')
+    else:
+        plt.imshow(field, cmap='rainbow')
+        plt.xlabel('X, mm')
+        plt.ylabel('Y, mm')
+        cbar = plt.colorbar()
+        cbar.set_label('Maximum normal strain')
 
 def draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain):
     '''
@@ -542,7 +549,7 @@ if __name__ == '__main__':
 
     # Show plots for calculation results
     SHOW_CRACK_ROI = False
-    SHOW_CRACK_DETECTED_STRAIN_FIELD = False
+    SHOW_CRACK_DETECTED_STRAIN_FIELD = True
     SHOW_AVG_MAX_STRAIN = True
     SHOW_THRESHOLD_EXCEEDED_TIMES = True
     SHOW_CRACK_LENGTH_VS_TIME = True
@@ -683,7 +690,7 @@ if __name__ == '__main__':
         draw_crack_ROI(crack_ROI, crack_points, data, LAST_REC, CRACK_LOCATION)
 
     if SHOW_CRACK_DETECTED_STRAIN_FIELD:
-        draw_crack_detected_strain_field(data, crack_ROI, first_crack_index, CRACK_LOCATION)
+        draw_crack_detected_strain_field(data, first_crack_index)
 
     if SHOW_AVG_MAX_STRAIN:
         draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain)
