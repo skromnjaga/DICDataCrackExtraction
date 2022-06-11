@@ -341,7 +341,23 @@ def draw_crack_ROI(crack_ROI, crack_thin, data, last_rec, crack_location):
         # Add points of thinned crack
         plt.scatter(crack_thin[:, 1], crack_thin[:, 0] + crack_ROI.shape[0], marker='.', linewidths = 1.0, color='black')
 
-def draw_crack_detected_strain_field(data, first_crack_index, crack_ROI=None, crack_location=None):
+def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
+    '''
+    Draw normal strain field with final length of crack detected
+    '''
+    plt.figure()
+
+    plt.contourf(x, y, data[last_rec], cmap='rainbow')
+    plt.xlabel('X, mm')
+    plt.xlabel('Y, mm')
+    cbar = plt.colorbar()
+    cbar.set_label('Maximum normal strain')
+
+    # Add points of thinned crack
+    plt.scatter(x[crack_thin[:,0], crack_thin[:,1]], y[crack_thin[:,0], crack_thin[:,1]], marker='.', linewidths = 1.0, color='black')
+    
+
+def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_ROI=None, crack_location=None):
     '''
     Draw strain field for first moment crack is detected
     '''
@@ -354,7 +370,7 @@ def draw_crack_detected_strain_field(data, first_crack_index, crack_ROI=None, cr
         elif crack_location == 'right' or crack_location == 'left':
             plt.imshow(np.vstack((field, crack_field)), cmap='rainbow')
     else:
-        plt.imshow(field, cmap='rainbow')
+        plt.contourf(x, y, field, cmap='rainbow')
         plt.xlabel('X, mm')
         plt.ylabel('Y, mm')
         cbar = plt.colorbar()
@@ -408,10 +424,11 @@ def draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_d
     '''
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(result_time_threshold_exceeded, crack_length, 'ko', label='DIC crack length')
-    ax.plot(result_time_threshold_exceeded[0], crack_length[0], 'ro', label='DIC crack detected time')
+    ax.plot(result_time_threshold_exceeded, crack_length, 'ko-', label='DIC crack length')
+    #ax.plot(result_time_threshold_exceeded[0], crack_length[0], 'ro', label='DIC crack detected time')
     ax.set_xlim([0, None])
-    #ax.set_ylim([0, None])
+    if ae_data is None:
+        ax.set_ylim([0, None])
     ax.set_ylabel('Length of crack, mm')
     ax.set_xlabel('Time, s')
     ax.grid()
@@ -419,7 +436,7 @@ def draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_d
     lines, labels = ax.get_legend_handles_labels()
 
     # Draw AE data to compare
-    if ae_data != None:
+    if ae_data is not None:
         ax2 = ax.twinx()
         ax2.plot(ae_data[0], ae_data[1], label='AE events count')
         ax2.plot(ae_data[2], ae_data[3], 'bo', label='AE crack detected time')
@@ -548,7 +565,8 @@ if __name__ == '__main__':
     USE_OTSUS = (True, False, False, False)
 
     # Show plots for calculation results
-    SHOW_CRACK_ROI = False
+    SHOW_CRACK_ROI = True
+    SHOW_FINAL_CRACK_FIELD = True
     SHOW_CRACK_DETECTED_STRAIN_FIELD = True
     SHOW_AVG_MAX_STRAIN = True
     SHOW_THRESHOLD_EXCEEDED_TIMES = True
@@ -613,7 +631,7 @@ if __name__ == '__main__':
         print('Processing skipped, using loaded previous results...')
 
     # Load data if required
-    if process_data or SHOW_CRACK_ROI or SHOW_CRACK_DETECTED_STRAIN_FIELD:
+    if process_data or SHOW_CRACK_ROI or SHOW_CRACK_DETECTED_STRAIN_FIELD or SHOW_FINAL_CRACK_FIELD:
         # Load data from file
         try:
             x_coords, y_coords, time_counts, data = load_data_from_file(DATA_SET_NAME, DATA_PATH)
@@ -689,8 +707,11 @@ if __name__ == '__main__':
     if SHOW_CRACK_ROI:
         draw_crack_ROI(crack_ROI, crack_points, data, LAST_REC, CRACK_LOCATION)
 
+    if SHOW_FINAL_CRACK_FIELD:
+        draw_final_legth_crack(data, x_coords, y_coords, LAST_REC, crack_points)
+
     if SHOW_CRACK_DETECTED_STRAIN_FIELD:
-        draw_crack_detected_strain_field(data, first_crack_index)
+        draw_crack_detected_strain_field(data, x_coords, y_coords, first_crack_index)
 
     if SHOW_AVG_MAX_STRAIN:
         draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain)
@@ -699,7 +720,7 @@ if __name__ == '__main__':
         draw_threshold_exceeded_times(time_counts, crack_length, field_in_crack, times_threshold_exceeded, result_time_threshold_exceeded)
 
     if SHOW_CRACK_LENGTH_VS_TIME:
-        draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_data)
+        draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, None)
 
     if SHOW_THRESHOLDS_TIMES:
         dic_data = (time_counts, result_time_threshold_exceeded, avg_normal_strain,
