@@ -115,7 +115,7 @@ def get_crack_ROI(data, x, y, last_rec_num, threshold, otsu = True, crack_locati
     
     im = data[last_rec_num, :, :]
 
-    # Normalize data to [0: 511]
+    # Normalize data to [0: 255]
     im = get_normalize_scalar_field(im, 254)
     im = im.astype(np.uint8)
 
@@ -239,7 +239,7 @@ def process_crack(data, crack_ROI, crack_thin, last_rec_num, threshold_ratio, th
         max_in_crack = np.max(field_in_crack[-1])
 
         # Try to detect crack
-        if not crack_detected and (max_in_crack > avg_in_field * threshold_ratio):
+        if not crack_detected and (max_in_crack > threshold_ratio):
             
             # Increment repetitions
             repetitions = repetitions + 1
@@ -269,7 +269,7 @@ def get_threshold_exceed_times(time_count, field_in_crack, average_strain, thres
 
     for i in range(records_num):
         for j in range(crack_points_num):
-            if field_in_crack[i][j] > average_strain[i] * threshold:
+            if field_in_crack[i][j] > threshold:
                 #if len(times_threshold_exceeded[j]) > 50:
                 #    continue
                 times_threshold_exceeded[j].append(time_count[i])
@@ -312,6 +312,30 @@ def get_threshold_exceed_times(time_count, field_in_crack, average_strain, thres
 def filter_outliers(data, m=2):
     return data[abs(data - np.mean(data)) < m * np.std(data)]
 
+def roi_scalar_field(data, x, y, points, zoom_x=0.5, zoom_y=1.0):
+    '''
+    Get x, y, z data to plot countour of scalar field with roi in coords of points
+    '''
+    # Get x and y coords of points
+    xx = x[points[:,0], points[:,1]]
+    yy = y[points[:,0], points[:,1]]
+
+    # Calculate min max x and y coords
+    x_min = np.min(xx) - np.sign(np.min(xx)) * np.min(xx) * zoom_x
+    x_max = np.max(xx) + np.sign(np.max(xx)) * np.max(xx) * zoom_x
+    y_min = np.min(yy) - np.sign(np.min(yy)) * np.min(yy) * zoom_y
+    y_max = np.max(yy) + np.sign(np.max(yy)) * np.max(yy) * zoom_y
+
+    # Calculate zoomed roi coords
+    roi_coords = np.where((x > x_min) & (x < x_max) & (y > y_min) & (y < y_max))
+
+    # Get 2D x, y, and z array to plot countour
+    xxx = x[roi_coords[0][0]:roi_coords[0][-1], roi_coords[1][0]:roi_coords[1][-1]]
+    yyy = y[roi_coords[0][0]:roi_coords[0][-1], roi_coords[1][0]:roi_coords[1][-1]]
+    zzz = data[roi_coords[0][0]:roi_coords[0][-1], roi_coords[1][0]:roi_coords[1][-1]]
+
+    return xx, yy, xxx, yyy, zzz 
+
 def draw_scalar_field(scalar_field, xx = None, yy = None):
     '''
     Draw a scalar field (e.i. normal strain field)
@@ -347,34 +371,40 @@ def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
     '''
     plt.figure()
 
-    plt.contourf(x, y, data[last_rec], cmap='rainbow')
+    # Calculate zoomed crack roi and countour it
+    xx, yy, xxx, yyy, zzz = roi_scalar_field(data[last_rec], x, y, crack_thin)
+
+    plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
     plt.xlabel('X, mm')
     plt.xlabel('Y, mm')
     cbar = plt.colorbar()
     cbar.set_label('Maximum normal strain')
 
-    # Add points of thinned crack
-    plt.scatter(x[crack_thin[:,0], crack_thin[:,1]], y[crack_thin[:,0], crack_thin[:,1]], marker='.', linewidths = 1.0, color='black')
-    
+    # Plot thinned crack points
+    plt.scatter(xx, yy, marker='.', linewidths = 1.0, color='black') 
 
-def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_ROI=None, crack_location=None):
+def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_thin, crack_ROI=None, crack_location=None):
     '''
     Draw strain field for first moment crack is detected
     '''
     plt.figure()
-    field = data[first_crack_index, :, :]
-    if crack_ROI is not None:
-        crack_field = np.multiply(field, crack_ROI)
-        if crack_location == 'bottom' or crack_location == 'top':
-            plt.imshow(np.hstack((field, crack_field)), cmap='rainbow')
-        elif crack_location == 'right' or crack_location == 'left':
-            plt.imshow(np.vstack((field, crack_field)), cmap='rainbow')
-    else:
-        plt.contourf(x, y, field, cmap='rainbow')
-        plt.xlabel('X, mm')
-        plt.ylabel('Y, mm')
-        cbar = plt.colorbar()
-        cbar.set_label('Maximum normal strain')
+
+    # Get first moment crack detected field of normal strain
+    field = data[first_crack_index]
+    # Get mask to highlight field in crack roi
+    mask = np.ones(field.shape)
+    mask[crack_ROI == False] = 0.1 
+
+    field = np.multiply(field, mask)
+
+    # Calculate zoomed crack roi and countour it
+    _, _, xxx, yyy, zzz = roi_scalar_field(field, x, y, crack_thin)
+
+    plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
+    plt.xlabel('X, mm')
+    plt.ylabel('Y, mm')
+    cbar = plt.colorbar()
+    cbar.set_label('Maximum normal strain')
 
 def draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain):
     '''
@@ -481,7 +511,7 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     
     # Determine DIC data in zoomed data
     dic_time = time_counts[(time_counts > min_time) & (time_counts < max_time)]
-    dic_ratio = (max_normal_strain / avg_normal_strain)[np.where((time_counts > min_time) & (time_counts < max_time))[0]]
+    dic_ratio = (max_normal_strain)[np.where((time_counts > min_time) & (time_counts < max_time))[0]]
 
     # Determine AE data in zoomed data
     if ae_data is not None:
@@ -490,7 +520,7 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
         ae_moment = ae_data[2]
         ae_threshold = ae_data[3]
 
-    # Filter otliers from ratio of avg to max normal strain
+    # Filter otliers from max normal strain
     if filer_outliers:
         w = 6
         for i in range(0, len(dic_ratio) - w):
@@ -514,6 +544,10 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
         # Interpolate dic data
         dic_time_interp = np.linspace(np.min(dic_time), np.max(dic_time), 3)
         dic_rations_interp = np.interp(dic_time_interp, dic_time, dic_ratio)
+
+        # Replace threshold time interpolated strain value with threshold value 
+        dic_rations_interp[abs(dic_time_interp - result_time_threshold_exceeded[0]) < 1] = threshold_ratio
+
         ax.plot(dic_time_interp, dic_rations_interp, 'r-')
     else:
         ax.plot(dic_time[:-sliding_avg_aperture//2], dic_ratio[:-sliding_avg_aperture//2], 'r-')
@@ -522,7 +556,7 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     ax.stem(result_time_threshold_exceeded[0], threshold_ratio, linefmt='r--', markerfmt='ro')
     ax.set_xlim([min_time, max_time])
     ax.set_ylim([0, None])
-    ax.set_ylabel('Maximum to avrage maximum normal strain ratio', color='red')
+    ax.set_ylabel('Maximum normal strain', color='red')
     ax.set_xlabel('Time, s')
     ax.tick_params(axis='y', color='red', labelcolor='red')
     ax.grid()
@@ -561,6 +595,7 @@ if __name__ == '__main__':
     DIC_MOMENTS = (0, 112.9, 11.59, 1300.3)
     AE_COUNTS = (0, 15, 39, 28)
     LAST_RECSS = (8102, 1199, 5758, 2666)
+    THRESHOLD_RATIOS = (0.0025, 0.0020, 0.0015, 0.0025)
     THRESHOLDS = (70, 115, 70, 60)
     USE_OTSUS = (True, False, False, False)
 
@@ -577,9 +612,9 @@ if __name__ == '__main__':
     DATA_SET_INDEX = 1
     
     # Threshold to find crack
-    THRESHOLD_RATIO = 10
+    THRESHOLD_RATIO = THRESHOLD_RATIOS[DATA_SET_INDEX]
     # Threshold exceed repetitions to detect crack
-    THRESHOLD_REPETITIONS = 3
+    THRESHOLD_REPETITIONS = 0
     # Direction to filter exceeding time in accsending order
     DIRECTION = 'forward'
     # Force to recalculate results with the same parameters
@@ -711,7 +746,7 @@ if __name__ == '__main__':
         draw_final_legth_crack(data, x_coords, y_coords, LAST_REC, crack_points)
 
     if SHOW_CRACK_DETECTED_STRAIN_FIELD:
-        draw_crack_detected_strain_field(data, x_coords, y_coords, first_crack_index)
+        draw_crack_detected_strain_field(data, x_coords, y_coords, first_crack_index, crack_points, crack_ROI)
 
     if SHOW_AVG_MAX_STRAIN:
         draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain)
