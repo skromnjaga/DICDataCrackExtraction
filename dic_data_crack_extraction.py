@@ -376,7 +376,7 @@ def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
 
     plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
     plt.xlabel('X, mm')
-    plt.xlabel('Y, mm')
+    plt.ylabel('Y, mm')
     cbar = plt.colorbar()
     cbar.set_label('Maximum normal strain')
 
