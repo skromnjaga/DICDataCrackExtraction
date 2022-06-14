@@ -552,7 +552,7 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     else:
         ax.plot(dic_time[:-sliding_avg_aperture//2], dic_ratio[:-sliding_avg_aperture//2], 'r-')
 
-    ax.axhline(y=threshold_ratio, color='r', linestyle='--')
+    ax.axhline(y=threshold_ratio, xmin=0, xmax=result_time_threshold_exceeded[0]/max_time[0], color='r', linestyle='--')
     ax.stem(result_time_threshold_exceeded[0], threshold_ratio, linefmt='r--', markerfmt='ro')
     ax.set_xlim([min_time, max_time])
     ax.set_ylim([0, None])
@@ -565,7 +565,7 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     if ae_data !=  None:
         ax2 = ax.twinx()
         ax2.plot(ae_time, ae_events, 'b-')
-        ax2.axhline(y=ae_data[3], color='b', linestyle='--')
+        ax2.axhline(y=ae_data[3], xmin=ae_moment/max_time[0], xmax=1, color='b', linestyle='--')
         ax2.stem(ae_moment, ae_threshold, linefmt='b--', markerfmt='bo')
         ax2.set_xlim([min_time, max_time])
         if ae_events_log_scale:
