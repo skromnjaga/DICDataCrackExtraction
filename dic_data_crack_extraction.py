@@ -381,7 +381,7 @@ def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
     cbar.set_label('Maximum normal strain')
 
     # Plot thinned crack points
-    plt.scatter(xx, yy, marker='.', linewidths = 1.0, color='black') 
+    plt.plot(xx, yy, 'k-') 
 
 def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_thin, crack_ROI=None, crack_location=None):
     '''
