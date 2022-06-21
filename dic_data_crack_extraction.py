@@ -375,10 +375,10 @@ def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
     xx, yy, xxx, yyy, zzz = roi_scalar_field(data[last_rec], x, y, crack_thin)
 
     plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
-    plt.xlabel('X, mm')
-    plt.ylabel('Y, mm')
+    plt.xlabel('$\it{x}$, mm')
+    plt.ylabel('$\it{y}$, mm')
     cbar = plt.colorbar()
-    cbar.set_label('Maximum normal strain')
+    cbar.ax.set_title('$\it{\epsilon}$', rotation=0)
 
     # Plot thinned crack points
     plt.plot(xx, yy, 'k-') 
@@ -401,10 +401,10 @@ def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_thin, 
     _, _, xxx, yyy, zzz = roi_scalar_field(field, x, y, crack_thin)
 
     plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
-    plt.xlabel('X, mm')
-    plt.ylabel('Y, mm')
+    plt.xlabel('$\it{x}$, mm')
+    plt.ylabel('$\it{y}$, mm')
     cbar = plt.colorbar()
-    cbar.set_label('Maximum normal strain')
+    cbar.ax.set_title('$\it{\epsilon}$', rotation=0)
 
 def draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain):
     '''
@@ -435,7 +435,7 @@ def draw_threshold_exceeded_times(time_counts, crack_length, field_in_crack, tim
 
     ax = plt.contourf(x, y, field_in_crack, levels=20, cmap='rainbow')
     cb = plt.colorbar()
-    cb.set_label('Maximum normail strain')
+    cb.ax.set_title('$\it{\epsilon}$', rotation=0)
 
     crack_points_num = len(field_in_crack[0])
 
@@ -494,9 +494,13 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     sliding_avg_aperture = 1
     ae_events_log_scale = False
 
-    if data_set_index == 1:
+    if data_set_index == 0:
+        scale_factor = 3
+        sliding_avg_aperture = 5
+    elif data_set_index == 1:
         scale_factor = 3
     elif data_set_index == 2:
+        scale_factor = 3
         sliding_avg_aperture = 5
     elif data_set_index == 3:
         sparsity_factor = 15
@@ -515,8 +519,8 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
 
     # Determine AE data in zoomed data
     if ae_data is not None:
-        ae_time = ae_data[0][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
-        ae_events = ae_data[1][(ae_data[0] > min_time) & (ae_data[0] < max_time)]
+        ae_time = ae_data[0][(ae_data[0] >= min_time) & (ae_data[0] <= max_time)]
+        ae_events = ae_data[1][(ae_data[0] >= min_time) & (ae_data[0] <= max_time)]
         ae_moment = ae_data[2]
         ae_threshold = ae_data[3]
 
@@ -556,7 +560,8 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     ax.stem(result_time_threshold_exceeded[0], threshold_ratio, linefmt='r--', markerfmt='ro')
     ax.set_xlim([min_time, max_time])
     ax.set_ylim([0, None])
-    ax.set_ylabel('Maximum normal strain', color='red')
+    ax.set_ylabel('$\it{\epsilon}$', color='red')
+    
     ax.set_xlabel('Time, s')
     ax.tick_params(axis='y', color='red', labelcolor='red')
     ax.grid()
@@ -591,10 +596,10 @@ if __name__ == '__main__':
 
     CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
     AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H-9-2.mat', 'Rail(10.03.22).mat')
-    AE_MOMENTS = (0, 17.5, 11.59, 1300.3)
+    AE_COUNTS = (4, 7, 6, 28)
+    AE_MOMENTS = (6.73, 9.43, 7.58, 1300.3)
     DIC_MOMENTS = (0, 112.9, 11.59, 1300.3)
-    AE_COUNTS = (0, 15, 39, 28)
-    LAST_RECSS = (8102, 1199, 5758, 2666)
+    LAST_RECSS = (7923, 1199, 5758, 2666)
     THRESHOLD_RATIOS = (0.0025, 0.0020, 0.0015, 0.0025)
     THRESHOLDS = (70, 115, 70, 60)
     USE_OTSUS = (True, False, False, False)
