@@ -36,6 +36,7 @@ def draw_strain_field(data, x, y, time, indicies):
 if __name__ == '__main__':
     
     DATA_PATH = './data'
+    EXPORT_PATH = './export'
     FILE_NAME_TO_SAVE = 'appendix.docx'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022', 'H_6_3_17_12_2021', 'H_3_3_26_11_2021')
@@ -94,9 +95,9 @@ if __name__ == '__main__':
     for buf in (bufs):
         document.add_picture(buf, width=Cm(16.5), height=Cm(11.0))
 
-    # document.add_page_break()
+    file_name = EXPORT_PATH + '/' + FILE_NAME_TO_SAVE
 
-    document.save(FILE_NAME_TO_SAVE)
-    os.system(f'start {FILE_NAME_TO_SAVE}')
+    document.save(file_name)
+    os.system(f'start {file_name}')
 
     print('Script finished')

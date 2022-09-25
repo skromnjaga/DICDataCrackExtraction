@@ -620,6 +620,7 @@ if __name__ == '__main__':
     
     DATA_PATH = './data'
     RESULT_PATH = './results'
+    EXPORT_PATH = './export'
 
     DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022', 'H_6_3_17_12_2021', 'H_3_3_26_11_2021')
     REMOTE_DIC_DATA_LINKS = ('https://yadi.sk/d/H1vUyhigblohFA', 'https://yadi.sk/d/rn3MWI0-RfzIcg', 'https://yadi.sk/d/9jzHGOotHuD9xQ', 'https://yadi.sk/d/rMMyPa9YhAxVtw', '', '')
@@ -771,7 +772,7 @@ if __name__ == '__main__':
         time_counts = results[()]['time_counts']
 
     # # Import crack length data to csv file
-    # with open(DATA_SET_NAME + '.csv', 'w', newline='') as csvfile:
+    # with open(EXPORT_PATH + '/' + DATA_SET_NAME + '.csv', 'w', newline='') as csvfile:
     #     writer = csv.writer(csvfile, delimiter=';', quotechar='|', quoting=csv.QUOTE_MINIMAL)
     #     writer.writerow(['Time, s', 'Crack length, mm'])
     #     for i in range(len(result_time_threshold_exceeded)):
