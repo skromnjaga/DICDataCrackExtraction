@@ -1,11 +1,13 @@
 from pathlib import Path
 import re
 
+import csv
 import requests
 from urllib.parse import urlencode
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import StrMethodFormatter
 import scipy.io
 import cv2
 
@@ -270,8 +272,8 @@ def get_threshold_exceed_times(time_count, field_in_crack, average_strain, thres
     for i in range(records_num):
         for j in range(crack_points_num):
             if field_in_crack[i][j] > threshold:
-                #if len(times_threshold_exceeded[j]) > 50:
-                #    continue
+                if len(times_threshold_exceeded[j]) > 50:
+                    continue
                 times_threshold_exceeded[j].append(time_count[i])
 
     for j in range(crack_points_num):
@@ -297,7 +299,10 @@ def get_threshold_exceed_times(time_count, field_in_crack, average_strain, thres
     if direction == 'forward':
         for j in range(1, crack_points_num):
             if result_time_threshold_exceeded[j] < result_time_threshold_exceeded[j-1]:
-                result_time_threshold_exceeded[j] = np.min(times_threshold_exceeded[j][np.where(times_threshold_exceeded[j] > result_time_threshold_exceeded[j-1])])
+                try:
+                    result_time_threshold_exceeded[j] = np.min(times_threshold_exceeded[j][np.where(times_threshold_exceeded[j] > result_time_threshold_exceeded[j-1])])
+                except ValueError as e:
+                    result_time_threshold_exceeded[j] = result_time_threshold_exceeded[j-1]
     elif direction == 'backward':
         for j in range(crack_points_num-1, 0, -1):
             if result_time_threshold_exceeded[j] < result_time_threshold_exceeded[j-1]:
@@ -377,8 +382,14 @@ def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
     plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
     plt.xlabel('$\it{x}$, mm')
     plt.ylabel('$\it{y}$, mm')
-    cbar = plt.colorbar()
-    cbar.ax.set_title('$\it{\epsilon}$', rotation=0)
+    # Remove the minus from the
+    xticks = [x for x in plt.xticks()[0] if x > plt.xlim()[0] and x < plt.xlim()[1]]
+    yticks = [y for y in plt.yticks()[0] if y > plt.ylim()[0] and y < plt.ylim()[1]]
+    plt.xticks(xticks, [f'{abs(x)}' for x in xticks])
+    plt.yticks(yticks, [f'{abs(y)}' for y in yticks])
+    # Leave four decimal places
+    cbar = plt.colorbar(format=StrMethodFormatter('{x:,.4f}'))
+    cbar.ax.set_ylabel('Maximum normal strain $\it{\epsilon}$')
 
     # Plot thinned crack points
     plt.plot(xx, yy, 'k-') 
@@ -403,8 +414,14 @@ def draw_crack_detected_strain_field(data, x, y, first_crack_index, crack_thin, 
     plt.contourf(xxx, yyy, zzz, levels=255, cmap='rainbow')
     plt.xlabel('$\it{x}$, mm')
     plt.ylabel('$\it{y}$, mm')
-    cbar = plt.colorbar()
-    cbar.ax.set_title('$\it{\epsilon}$', rotation=0)
+    # Remove the minus from the
+    xticks = [x for x in plt.xticks()[0] if x > plt.xlim()[0] and x < plt.xlim()[1]]
+    yticks = [y for y in plt.yticks()[0] if y > plt.ylim()[0] and y < plt.ylim()[1]]
+    plt.xticks(xticks, [f'{abs(x)}' for x in xticks])
+    plt.yticks(yticks, [f'{abs(y)}' for y in yticks])
+    # Leave four decimal places
+    cbar = plt.colorbar(format=StrMethodFormatter('{x:,.4f}'))
+    cbar.ax.set_ylabel('Maximum normal strain $\it{\epsilon}$')
 
 def draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain):
     '''
@@ -415,7 +432,7 @@ def draw_avg_max_normal_strain(time_counts, avg_normal_strain, max_normal_strain
     plt.plot(time_counts, avg_normal_strain, 'b-', label='Average in whole field')
     plt.plot(time_counts, max_normal_strain, 'r-', label='Maximum in crack ROI')
     plt.xlabel('Time, s')
-    plt.ylabel('Max normal strain')
+    plt.ylabel('Maximum normal strain $\it{\epsilon}$')
     plt.legend()
     plt.grid()
     
@@ -429,18 +446,22 @@ def draw_threshold_exceeded_times(time_counts, crack_length, field_in_crack, tim
     '''
     Draw threshold exceeded times detected for every point of crack 
     '''
-    x, y = np.meshgrid(crack_length, time_counts)
+    max_time = np.max(avg_times_threshold_exceeded) * 1.1
+    indices = np.argwhere(time_counts < max_time)
+    time_counts_filtered = time_counts[indices]
+
+    x, y = np.meshgrid(crack_length, time_counts_filtered)
 
     plt.figure()
 
-    ax = plt.contourf(x, y, field_in_crack, levels=20, cmap='rainbow')
+    ax = plt.contourf(x, y, field_in_crack[:time_counts_filtered.shape[0]], levels=20, cmap='rainbow')
     cb = plt.colorbar()
-    cb.ax.set_title('$\it{\epsilon}$', rotation=0)
+    cb.set_label('Maximum normal strain $\it{\epsilon}$')
 
     crack_points_num = len(field_in_crack[0])
 
     for i in range(crack_points_num):
-        times_to_plot = times_threshold_exceeded[i]
+        times_to_plot = [time for time in times_threshold_exceeded[i] if time < max_time]
         plt.scatter(crack_length[[i]*len(times_to_plot)], times_to_plot)
     plt.plot(crack_length, avg_times_threshold_exceeded, 'k-')
     
@@ -455,12 +476,12 @@ def draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_d
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(result_time_threshold_exceeded, crack_length, 'ko-', label='DIC crack length')
-    #ax.plot(result_time_threshold_exceeded[0], crack_length[0], 'ro', label='DIC crack detected time')
+    # ax.plot(result_time_threshold_exceeded[0], crack_length[0], 'ro', label='DIC crack detected time')
     ax.set_xlim([0, None])
     if ae_data is None:
         ax.set_ylim([0, None])
-    ax.set_ylabel('Length of crack, mm')
-    ax.set_xlabel('Time, s')
+    ax.set_ylabel(r'Crack length $\it{s}_{\rm{DIC}}$, mm') 
+    ax.set_xlabel('Time $\it{T}$, s')
     ax.grid()
 
     lines, labels = ax.get_legend_handles_labels()
@@ -468,7 +489,7 @@ def draw_crack_length_vs_time(result_time_threshold_exceeded, crack_length, ae_d
     # Draw AE data to compare
     if ae_data is not None:
         ax2 = ax.twinx()
-        ax2.plot(ae_data[0], ae_data[1], label='AE events count')
+        ax2.plot(ae_data[0], ae_data[1], label='AE events $\it{N}$')
         ax2.plot(ae_data[2], ae_data[3], 'bo', label='AE crack detected time')
         #ax2.set_yscale('log')
         ax2.set_ylim([0, None])
@@ -560,9 +581,8 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
     ax.stem(result_time_threshold_exceeded[0], threshold_ratio, linefmt='r--', markerfmt='ro')
     ax.set_xlim([min_time, max_time])
     ax.set_ylim([0, None])
-    ax.set_ylabel('$\it{\epsilon}$', color='red')
-    
-    ax.set_xlabel('Time, s')
+    ax.set_ylabel('Maximum normal strain $\it{\epsilon}$', color='red')
+    ax.set_xlabel('Time $\it{T}$, s')
     ax.tick_params(axis='y', color='red', labelcolor='red')
     ax.grid()
 
@@ -577,9 +597,20 @@ def draw_thresholds_times(dic_data, ae_data, data_set_index):
             ax2.set_yscale('log')
         else:
             ax2.set_ylim([0, None])
-        ax2.set_ylabel('Events', color='blue')
+        ax2.set_ylabel('AE events $\it{N}$', color='blue')
         ax2.tick_params(axis='y', color='blue', labelcolor='blue')
         ax2.grid()
+    ticks, _ = plt.xticks()
+    ticks = np.array([tick for tick in ticks if tick >= min_time and tick <= max_time])
+    idx1 = np.argmin(np.abs(ticks - result_time_threshold_exceeded[0]))
+    idx2 = np.argmin(np.abs(ticks - ae_moment))
+    ticks[idx1] = result_time_threshold_exceeded[0]
+    ticks[idx2] = ae_moment
+    # labels = ax.get_xticks().tolist()
+    labels = [f'{tick:.0f}' for tick in ticks]
+    labels[idx1] = r'$\it{T}_{\rm{DIC}}$'
+    labels[idx2] = r'$\it{T}_{\rm{AE}}$'
+    plt.xticks(ticks, labels)
 
 def export_to_mat(file_name, mdict):
     scipy.io.savemat(file_name, mdict)
@@ -590,19 +621,19 @@ if __name__ == '__main__':
     DATA_PATH = './data'
     RESULT_PATH = './results'
 
-    DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022')
-    REMOTE_DIC_DATA_LINKS = ('https://yadi.sk/d/H1vUyhigblohFA', 'https://yadi.sk/d/rn3MWI0-RfzIcg', 'https://yadi.sk/d/9jzHGOotHuD9xQ', 'https://yadi.sk/d/rMMyPa9YhAxVtw')
-    REMOTE_AE_DATA_LINKS = ('', 'https://yadi.sk/d/4P30t4f32ndk7A', 'https://yadi.sk/d/tipwEmUdy2OTzg', 'https://yadi.sk/d/MfUAJK3Y7eQonA')
+    DATA_SETS = ('R_6_28_12_2021', 'O16_12_08_2021', 'H_9_2_17_12_2021', 'R_Nemo_10_03_2022', 'H_6_3_17_12_2021', 'H_3_3_26_11_2021')
+    REMOTE_DIC_DATA_LINKS = ('https://yadi.sk/d/H1vUyhigblohFA', 'https://yadi.sk/d/rn3MWI0-RfzIcg', 'https://yadi.sk/d/9jzHGOotHuD9xQ', 'https://yadi.sk/d/rMMyPa9YhAxVtw', '', '')
+    REMOTE_AE_DATA_LINKS = ('', 'https://yadi.sk/d/4P30t4f32ndk7A', 'https://yadi.sk/d/tipwEmUdy2OTzg', 'https://yadi.sk/d/MfUAJK3Y7eQonA', '', '')
 
-    CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left')
-    AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H-9-2.mat', 'Rail(10.03.22).mat')
-    AE_COUNTS = (4, 7, 6, 28)
-    AE_MOMENTS = (6.73, 9.43, 7.58, 1300.3)
-    DIC_MOMENTS = (0, 112.9, 11.59, 1300.3)
-    LAST_RECSS = (7923, 1199, 5758, 2666)
-    THRESHOLD_RATIOS = (0.0025, 0.0020, 0.0015, 0.0025)
-    THRESHOLDS = (70, 115, 70, 60)
-    USE_OTSUS = (True, False, False, False)
+    CRACK_LOCATIONS = ('right', 'bottom', 'left', 'left', 'left', 'left')
+    AE_FILES = ('P6.mat', 'Shaft(O16).mat', 'H-9-2.mat', 'Rail(10.03.22).mat', '', '')
+    AE_COUNTS = (4, 7, 6, 28, None, None)
+    AE_MOMENTS = (6.73, 9.43, 7.58, 1300.3, None, None)
+    DIC_MOMENTS = (0, 112.9, 11.59, 1300.3, None, None)
+    LAST_RECSS = (7923, 1199, 5758, 2666, 207, 11259)
+    THRESHOLD_RATIOS = (0.0025, 0.0015, 0.0017, 0.0025, 0.0017, 0.0017)
+    THRESHOLDS = (70, 115, 70, 60, 70, 70)
+    USE_OTSUS = (True, False, False, False, False, False)
 
     # Show plots for calculation results
     SHOW_CRACK_ROI = True
@@ -614,7 +645,7 @@ if __name__ == '__main__':
     SHOW_THRESHOLDS_TIMES = True
 
     # Index of data set to calculate
-    DATA_SET_INDEX = 1
+    DATA_SET_INDEX = 0
     
     # Threshold to find crack
     THRESHOLD_RATIO = THRESHOLD_RATIOS[DATA_SET_INDEX]
@@ -738,6 +769,13 @@ if __name__ == '__main__':
         times_threshold_exceeded = results[()]['times_threshold_exceeded']
         result_time_threshold_exceeded = results[()]['result_time_threshold_exceeded']
         time_counts = results[()]['time_counts']
+
+    # # Import crack length data to csv file
+    # with open(DATA_SET_NAME + '.csv', 'w', newline='') as csvfile:
+    #     writer = csv.writer(csvfile, delimiter=';', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    #     writer.writerow(['Time, s', 'Crack length, mm'])
+    #     for i in range(len(result_time_threshold_exceeded)):
+    #         writer.writerow([result_time_threshold_exceeded[i, 0], crack_length[i]])
 
     print(f'Crack founded on {first_crack_index} record - {time_counts[first_crack_index]} s')
     
