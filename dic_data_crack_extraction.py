@@ -676,6 +676,9 @@ if __name__ == '__main__':
     AE_MOMENT = AE_MOMENTS[DATA_SET_INDEX]
     AE_COUNT = AE_COUNTS[DATA_SET_INDEX]
 
+    # Set font size for figures 
+    plt.rcParams.update({'font.size': 10})
+
     print(f'Dataset "{DATA_SET_NAME}" choosed to process..')
 
     # Try to load previous results
