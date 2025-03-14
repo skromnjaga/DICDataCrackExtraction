@@ -114,24 +114,31 @@ def get_normalize_scalar_field(field, max_value):
 
     return field
 
-def get_crack_ROI(data, x, y, last_rec_num, threshold, otsu = True, crack_location='left'):
+def get_crack_ROI(data, x, y, last_rec_num, threshold_ratio, threshold, otsu = True, crack_location='left'):
     
     im = data[last_rec_num, :, :]
 
-    # Normalize data to [0: 255]
-    im = get_normalize_scalar_field(im, 254)
-    im = im.astype(np.uint8)
-
     if otsu:
-        flag = cv2.THRESH_OTSU
+        # Normalize data to [0: 255]
+        im = get_normalize_scalar_field(im, 254)
+        im = im.astype(np.uint8)
+        ret, crack_ROI = cv2.threshold(im, threshold, 255,  cv2.THRESH_OTSU)
     else:
-        flag = cv2.THRESH_BINARY
+        crack_ROI = np.where(im >= threshold_ratio, 255, 0).astype(np.uint8)
 
-    ret, crack_ROI = cv2.threshold(im, threshold, 255,  flag)
     #crack_ROI = cv2.adaptiveThreshold(im, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, -10)
 
-    crack_ROI = cv2.morphologyEx(crack_ROI, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3)))
+    # From https://stackoverflow.com/questions/42798659/how-to-remove-small-connected-objects-using-opencv
+    _, im_with_separated_blobs, stats, _ = cv2.connectedComponentsWithStats(crack_ROI)
 
+    sizes = stats[:, cv2.CC_STAT_AREA]
+
+    max_blob_size_index = np.argmax(sizes[1:]) + 1
+
+    crack_ROI = np.where(im_with_separated_blobs == max_blob_size_index, 255, 0).astype(np.uint8)
+
+    crack_ROI = cv2.morphologyEx(crack_ROI, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_CROSS, (5, 5)))
+    
     #last_x = crack_ROI.shape[0] - 1
     #first_x = last_x
 
@@ -360,16 +367,16 @@ def draw_crack_ROI(crack_ROI, crack_thin, data, last_rec, crack_location):
     '''
     Draw crack ROI with raw strain field and thinned crack
     '''
-    plt.figure()
-
     if crack_location == 'bottom' or crack_location == 'top':
-        plt.imshow(np.hstack((crack_ROI, get_normalize_scalar_field(data[last_rec, :, :], 1))), cmap='rainbow')
-        # Add points of thinned crack
-        plt.scatter(crack_thin[:, 1] + crack_ROI.shape[1], crack_thin[:, 0], marker='.', linewidths = 1.0, color='black')
+        _, (ax1, ax2) = plt.subplots(1, 2, sharex=True)
     elif crack_location == 'right' or crack_location == 'left':
-        plt.imshow(np.vstack((crack_ROI, get_normalize_scalar_field(data[last_rec, :, :], 1))), cmap='rainbow')
-        # Add points of thinned crack
-        plt.scatter(crack_thin[:, 1], crack_thin[:, 0] + crack_ROI.shape[0], marker='.', linewidths = 1.0, color='black')
+        _, (ax1, ax2) = plt.subplots(2, 1, sharey=True)
+
+    ax1.imshow(crack_ROI, cmap='rainbow')
+
+    ax2.imshow(data[last_rec, :, :], cmap='rainbow')
+    # Add points of thinned crack
+    ax2.scatter(crack_thin[:, 1], crack_thin[:, 0], marker='.', linewidths = 1.0, color='black')
 
 def draw_final_legth_crack(data, x, y, last_rec, crack_thin):
     '''
@@ -725,7 +732,7 @@ if __name__ == '__main__':
     parameters_changed = True
     if parameters is not None:
         parameters_changed = (float(parameters[0]) != THRESHOLD_RATIO or int(parameters[1]) != THRESHOLD_REPETITIONS or
-                              parameters[2] != DIRECTION or int(parameters[3]) != LAST_REC or int(parameters[4]) != THRESHOLD or
+                              parameters[2] != DIRECTION or int(parameters[3]) != LAST_REC or float(parameters[4]) != THRESHOLD or
                               parameters[5] != str(USE_OTSU) or parameters[6] != CRACK_LOCATION)
     
     # Determine if processing data is required
@@ -782,7 +789,7 @@ if __name__ == '__main__':
         time_counts = time_counts[:LAST_REC]        
 
         # Find crack ROI, crack points coordinates and crack length
-        crack_ROI, crack_points, crack_length = get_crack_ROI(data, x_coords, y_coords, LAST_REC, THRESHOLD, USE_OTSU, CRACK_LOCATION)
+        crack_ROI, crack_points, crack_length = get_crack_ROI(data, x_coords, y_coords, LAST_REC, THRESHOLD_RATIO, THRESHOLD, USE_OTSU, CRACK_LOCATION)
         
         # For each strain field find field in crack, avg and max field, find first index with crack founded
         field_in_crack, avg_normal_strain, max_normal_strain, first_crack_index = process_crack(data, crack_ROI, crack_points, LAST_REC, THRESHOLD_RATIO, THRESHOLD_REPETITIONS)
